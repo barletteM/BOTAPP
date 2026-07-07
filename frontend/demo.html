@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Glowdom Reception Assistant Demo</title>
+    <style>
+      body { margin: 0; font-family: Arial, sans-serif; background: #f7f8f4; color: #17211d; }
+      header { display: flex; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid #dfe6df; background: white; }
+      main { padding: 28px; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+      .card, .chat { background: white; border: 1px solid #dfe6df; border-radius: 8px; padding: 18px; }
+      button { border: 0; background: #145c4b; color: white; border-radius: 8px; padding: 10px 14px; cursor: pointer; }
+      input { border: 1px solid #cfd8d0; border-radius: 8px; padding: 10px; width: min(680px, 70vw); }
+      .messages { min-height: 260px; margin: 16px 0; }
+      .bubble { padding: 10px 12px; border-radius: 8px; margin: 8px 0; max-width: 760px; }
+      .user { background: #e6efe8; margin-left: auto; }
+      .assistant { background: #f2eadf; }
+      .suggestions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 16px; }
+      .suggestions button { background: #27313f; padding: 8px 10px; }
+      details { margin-top: 10px; }
+      summary { cursor: pointer; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <header><strong>Glowdom Reception Assistant</strong><span>Local demo</span></header>
+    <main id="app"></main>
+    <script>
+      const api = `${window.location.origin}/api`;
+      let bots = [];
+      let selected = null;
+      let sessionId = null;
+      const app = document.getElementById("app");
+
+      async function loadBots() {
+        bots = await fetch(`${api}/bots`).then((r) => r.json());
+        renderSelect();
+      }
+
+      function renderSelect() {
+        app.innerHTML = `<h1>Choose a reception assistant</h1><section class="grid">${bots.map((bot) => `
+          <article class="card">
+            <h2>${bot.name}</h2>
+            <p>${bot.description}</p>
+            <button onclick="openChat('${bot.slug}')">Chat</button>
+          </article>`).join("")}</section>`;
+      }
+
+      function openChat(slug) {
+        selected = bots.find((bot) => bot.slug === slug);
+        sessionId = null;
+        app.innerHTML = `<button onclick="renderSelect()">Back</button><h1>${selected.name}</h1>
+          <section class="chat">
+            <div id="messages" class="messages"><p>Ask about hours, directions, services, names, documents, fees, applications, courses, payments, or appointments.</p></div>
+            <p id="offlineStatus"></p>
+            <div id="suggestions" class="suggestions"></div>
+            <input id="message" placeholder="Type your question" onkeydown="if(event.key==='Enter') sendMessage()" />
+            <button onclick="sendMessage()">Send</button>
+          </section>`;
+        renderOfflineStatus();
+        renderSuggestions();
+      }
+
+      function suggestionList() {
+        const common = ["What are the opening hours?", "Where is it located?", "What documents do I need?", "Who can I contact?"];
+        const byBot = {
+          "limkokwing-university": ["What courses are offered?", "How much are the fees?", "Who is the founder?", "What colour is the school?"],
+          "irca-glowdom-africa": ["Who is Sebulon?", "Who is the CEO?", "What services do you offer?", "How do I book an appointment?"],
+          "windhoek-municipality": ["Who is the mayor?", "What is the contact email?", "How do I pay my municipal account?", "What services are available?"]
+        };
+        return [...common, ...(byBot[selected.slug] || [])];
+      }
+
+      function renderSuggestions() {
+        const box = document.getElementById("suggestions");
+        if (!box || !selected) return;
+        box.innerHTML = suggestionList()
+          .map((question) => `<button onclick="askSuggestion('${question.replaceAll("'", "\\'")}')">${question}</button>`)
+          .join("");
+      }
+
+      function askSuggestion(question) {
+        const input = document.getElementById("message");
+        input.value = question;
+        sendMessage();
+      }
+
+      async function sendMessage() {
+        const input = document.getElementById("message");
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = "";
+        const messages = document.getElementById("messages");
+        messages.innerHTML += `<div class="bubble user">${text}</div>`;
+        const res = await fetch(`${api}/bots/${selected.slug}/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text, session_id: sessionId, offline_cache: getOfflineCache() })
+        }).then((r) => r.json());
+        sessionId = res.session_id;
+        saveOfflineCache(res.cache_items || []);
+        renderOfflineStatus();
+        messages.innerHTML += `<div class="bubble assistant">${res.answer}</div>`;
+        renderSources(res.sources || []);
+      }
+
+      function offlineKey() {
+        return `glowdom-offline-cache-${selected.slug}`;
+      }
+
+      function getOfflineCache() {
+        if (!selected) return [];
+        return JSON.parse(localStorage.getItem(offlineKey()) || "[]");
+      }
+
+      function saveOfflineCache(items) {
+        if (!selected || !items.length) return;
+        const existing = getOfflineCache();
+        const byText = new Map(existing.map((item) => [item.text, item]));
+        items.forEach((item) => byText.set(item.text, item));
+        localStorage.setItem(offlineKey(), JSON.stringify([...byText.values()]));
+      }
+
+      function renderOfflineStatus() {
+        const status = document.getElementById("offlineStatus");
+        if (!status) return;
+        const count = getOfflineCache().length;
+        status.textContent = count
+          ? `Offline cache ready: ${count} saved facts for this bot.`
+          : "Offline cache will build as you ask questions.";
+      }
+
+      function renderSources(sources) {
+        if (!sources.length) return;
+        const messages = document.getElementById("messages");
+        let details = document.getElementById("sourceLinks");
+        if (!details) {
+          details = document.createElement("details");
+          details.id = "sourceLinks";
+          messages.appendChild(details);
+        }
+        details.innerHTML = `<summary>Sources</summary>${sources.map((source) => `<p><a href="${source.url}" target="_blank" rel="noreferrer">${source.label}</a></p>`).join("")}`;
+      }
+
+      loadBots().catch((error) => { app.innerHTML = `<p>${error.message}</p>`; });
+    </script>
+  </body>
+</html>

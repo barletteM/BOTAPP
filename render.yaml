@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: glowdom-reception-demo
+    runtime: python
+    plan: free
+    buildCommand: ""
+    startCommand: "python backend/demo_api_server.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.4
