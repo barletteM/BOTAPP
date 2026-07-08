@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import List, Optional
 from uuid import uuid4
 
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
@@ -47,7 +48,7 @@ class KnowledgeChunk(Base):
     version_id: Mapped[str] = mapped_column(ForeignKey("knowledge_versions.id"), index=True)
     content: Mapped[str] = mapped_column(Text)
     chunk_index: Mapped[int] = mapped_column(Integer)
-    embedding: Mapped[list[float] | None] = mapped_column(JSON, nullable=True)
+    embedding: Mapped[Optional[List[float]]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     version = relationship("KnowledgeVersion", back_populates="chunks")
