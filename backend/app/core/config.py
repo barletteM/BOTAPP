@@ -13,12 +13,17 @@ class Settings(BaseSettings):
     access_token_minutes: int = 720
     upload_dir: str = "uploads"
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    cors_origin_regex: str = r"https://.*\.(onrender\.com|vercel\.app|netlify\.app)"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def cors_regex_value(self) -> str | None:
+        return self.cors_origin_regex.strip() or None
 
 
 @lru_cache
