@@ -1,6 +1,6 @@
 import type { Bot, ChatSession, FAQ, KnowledgeDocument } from "./types";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
+const API_URL = import.meta.env.VITE_API_URL ?? `${window.location.origin}/api`;
 
 function token() {
   return localStorage.getItem("glowdom_token");
