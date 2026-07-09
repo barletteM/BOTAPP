@@ -6,6 +6,7 @@ import type { Bot, ChatMessage, ChatSession, FAQ, KnowledgeDocument } from "./ty
 import "./styles.css";
 
 type View = "select" | "chat" | "login" | "admin";
+const SHOW_ADMIN = import.meta.env.VITE_SHOW_ADMIN === "true";
 
 function App() {
   const [bots, setBots] = useState<Bot[]>([]);
@@ -27,9 +28,11 @@ function App() {
         <button className="brand" onClick={() => setView("select")}>
           <BotIcon size={22} /> Glowdom Reception
         </button>
-        <button className="ghost" onClick={() => setView(localStorage.getItem("glowdom_token") ? "admin" : "login")}>
-          <Lock size={18} /> Admin
-        </button>
+        {SHOW_ADMIN && (
+          <button className="ghost" onClick={() => setView(localStorage.getItem("glowdom_token") ? "admin" : "login")}>
+            <Lock size={18} /> Admin
+          </button>
+        )}
       </header>
       {view === "select" && <BotSelector bots={bots} onChat={(bot) => chooseBot(bot, "chat")} onManage={(bot) => chooseBot(bot, localStorage.getItem("glowdom_token") ? "admin" : "login")} />}
       {view === "chat" && selected && <ChatPage bot={selected} onBack={() => setView("select")} />}
@@ -54,7 +57,7 @@ function BotSelector({ bots, onChat, onManage }: { bots: Bot[]; onChat: (bot: Bo
             <p>{bot.description}</p>
             <div className="row">
               <button onClick={() => onChat(bot)}><MessageSquare size={18} /> Chat</button>
-              <button className="secondary" onClick={() => onManage(bot)}><FileText size={18} /> Manage</button>
+              {SHOW_ADMIN && <button className="secondary" onClick={() => onManage(bot)}><FileText size={18} /> Manage</button>}
             </div>
           </article>
         ))}
@@ -69,9 +72,9 @@ function ChatPage({ bot, onBack }: { bot: Bot; onBack: () => void }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function send() {
-    if (!message.trim() || busy) return;
-    const outgoing: ChatMessage = { id: crypto.randomUUID(), role: "user", content: message, created_at: new Date().toISOString() };
+  async function sendText(text: string) {
+    if (!text.trim() || busy) return;
+    const outgoing: ChatMessage = { id: crypto.randomUUID(), role: "user", content: text, created_at: new Date().toISOString() };
     setMessages((items) => [...items, outgoing]);
     setMessage("");
     setBusy(true);
@@ -83,6 +86,18 @@ function ChatPage({ bot, onBack }: { bot: Bot; onBack: () => void }) {
       setBusy(false);
     }
   }
+
+  async function send() {
+    await sendText(message);
+  }
+
+  const commonSuggestions = ["What are the opening hours?", "Where is it located?", "What documents do I need?", "Who can I contact?"];
+  const botSuggestions: Record<string, string[]> = {
+    "limkokwing-university": ["What courses are offered?", "How much are the fees?", "Who is the founder?", "What colour is the school?"],
+    "irca-glowdom-africa": ["Who is Sebulon?", "Who is the CEO?", "What services do you offer?", "How do I book an appointment?"],
+    "windhoek-municipality": ["Who is the mayor?", "What is the contact email?", "How do I pay my municipal account?", "What services are available?"],
+  };
+  const suggestions = [...commonSuggestions, ...(botSuggestions[bot.slug] ?? [])];
 
   return (
     <section className="chat-layout">
@@ -101,6 +116,18 @@ function ChatPage({ bot, onBack }: { bot: Bot; onBack: () => void }) {
           {messages.length === 0 && <p className="empty">Ask about services, applications, documents, fees, appointments, office hours, or directions.</p>}
           {messages.map((item) => <div className={`bubble ${item.role}`} key={item.id}>{item.content}</div>)}
           {busy && <div className="bubble assistant">Checking approved information...</div>}
+        </div>
+        <div className="suggestions">
+          {suggestions.map((question) => (
+            <button
+              className="chip"
+              key={question}
+              onClick={() => sendText(question)}
+              type="button"
+            >
+              {question}
+            </button>
+          ))}
         </div>
         <div className="composer">
           <input value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => event.key === "Enter" && send()} placeholder="Type your question" />
