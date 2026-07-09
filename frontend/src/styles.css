@@ -92,6 +92,18 @@ dd { margin: 4px 0 0; }
   grid-template-columns: 1fr auto;
   padding: 14px;
 }
+.suggestions {
+  border-top: 1px solid #dfe6df;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px 0;
+}
+.chip {
+  background: #27313f;
+  min-height: 34px;
+  padding: 0 12px;
+}
 .login {
   display: grid;
   gap: 14px;
