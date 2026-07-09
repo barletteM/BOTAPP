@@ -190,7 +190,7 @@ function ProfileManager({ bot }: { bot: Bot }) {
   return (
     <div className="stack">
       {(["office_hours", "location", "phone", "email", "website", "reception_instructions"] as const).map((field) => (
-        <label key={field}>{field.replaceAll("_", " ")}
+        <label key={field}>{field.replace(/_/g, " ")}
           <textarea value={form[field]} onChange={(event) => setForm({ ...form, [field]: event.target.value })} />
         </label>
       ))}
