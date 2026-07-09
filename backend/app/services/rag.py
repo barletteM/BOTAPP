@@ -52,12 +52,30 @@ def answer_question(db: Session, *, bot: BotProfile, message: str, session_id: s
     db.add(ChatMessage(session_id=session.id, role="user", content=message))
     contexts = retrieve_context(db, bot.id, message)
     if not contexts:
-        answer = FALLBACK
+        answer = _demo_answer(bot, message)
     else:
         answer = _generate_answer(bot, message, contexts)
     db.add(ChatMessage(session_id=session.id, role="assistant", content=answer))
     db.commit()
     return session.id, answer
+
+
+def _demo_answer(bot: BotProfile, question: str) -> str:
+    try:
+        from demo_api_server import answer_from_demo_knowledge
+
+        return answer_from_demo_knowledge(
+            {
+                "id": bot.id,
+                "slug": bot.slug,
+                "name": bot.name,
+                "description": bot.description,
+            },
+            question,
+            [],
+        )
+    except Exception:
+        return FALLBACK
 
 
 def _generate_answer(bot: BotProfile, question: str, contexts: list[str]) -> str:
